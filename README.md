@@ -54,7 +54,7 @@ The Quantum Socket Toolkit comes with a set of tools:
 
 ***Docker Install***
 
-[![Docker](http://dockeri.co/image/egee/qsocket)](https://hub.docker.com/r/egee/qsocket/)
+[![Docker](http://dockeri.co/image/qsocket/qsocket)](https://hub.docker.com/r/qsocket/qsocket/)
 
 ```bash
 docker pull qsocket/qs-netcat
