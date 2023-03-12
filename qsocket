@@ -1,0 +1,160 @@
+#!/bin/bash
+
+## ANSI Colors (FG & BG)
+RED="$(printf '\033[31m')" GREEN="$(printf '\033[32m')" YELLOW="$(printf '\033[33m')" BLUE="$(printf '\033[34m')"
+MAGENTA="$(printf '\033[35m')" CYAN="$(printf '\033[36m')" WHITE="$(printf '\033[37m')" BLACK="$(printf '\033[30m')"
+REDBG="$(printf '\033[41m')" GREENBG="$(printf '\033[42m')" YELLOWBG="$(printf '\033[43m')" BLUEBG="$(printf '\033[44m')"
+MAGENTABG="$(printf '\033[45m')" CYANBG="$(printf '\033[46m')" WHITEBG="$(printf '\033[47m')" BLACKBG="$(printf '\033[40m')"
+RESET="$(printf '\e[0m')"
+ERR_LOG=/dev/null
+
+## Reset terminal colors
+print_status() {
+    echo "${YELLOW}[*] ${RESET}${1}"
+}
+
+print_warning() {
+  echo ${YELLOW}"[!] ${RESET}${1}"
+}
+
+print_error() {
+  echo "${RED}[-] ${RESET}${1}"
+}
+
+print_fatal() {
+  echo -e ${RED}"[!] $1\n${RESET}"
+  kill -10 $$
+}
+
+print_good() {
+  echo "${GREEN}[+] ${RESET}${1}"
+}
+
+print_verbose() {
+  if [[ ! -z "${VERBOSE}" ]]; then
+    echo "${WHITE}[*] ${RESET}${1}"
+  fi
+}
+
+must_exist() {
+  for i in "$@"; do
+		command -v $i >$ERR_LOG || print_fatal "$i not installed! Exiting..."
+  done
+}
+
+## Handle SININT
+exit_on_signal_SIGINT () {
+	print_error "Script interrupted!"
+  	clean_exit
+}
+
+exit_on_signal_SIGTERM () {
+	print_error "Script interrupted!"
+	clean_exit
+}
+
+trap exit_on_signal_SIGINT SIGINT
+trap exit_on_signal_SIGTERM SIGTERM
+
+
+random_md5() {
+	head -c 100 /dev/urandom | md5sum | awk '{print $1}'
+}
+
+handle_errors() {
+	case $1 in
+	$ERR_DLSYM_FAILED)
+		print_error "dlsym(connect) call failed!"
+		;;
+	$ERR_INVALID_GATE)
+		print_error "Invalid qsocket gate value!"
+		;;
+	$ERR_INVALID_SECRET)
+		print_error "Invalid qsocket secret value!"
+		;;
+	$ERR_INVALID_TAG)
+		print_error "Invalid qsocket tag value!"
+		;;
+	$ERR_MALLOC_FAILED)
+		print_error "malloc() call failed!"
+		;;
+	$ERR_KNOCK_FAILED)
+		print_error "Qsocket knock sequence failed!"
+		;;
+	*)
+		;;
+	esac
+
+}
+
+exec_with_qsocket() {
+	if [[ "`uname`" == "Darwin" ]]; then
+		DYLD_INSERT_LIBRARIES=${QS_SO_BIN} DYLD_FORCE_FLAT_NAMESPACE=1 QSOCKET_SECRET="${QSOCKET_SECRET}" exec "$1" "${@:2}"
+	else
+		LD_PRELOAD="${QS_SO_BIN}" QSOCKET_SECRET="${QSOCKET_SECRET}" exec "$1" "${@:2}"
+	fi
+	handle_errors "$?"
+}
+
+usage() {
+	echo "$0 [options...] <program> <parameters...>
+	-s, --secret <string>    Secret (e.g. password).
+	-v, --verbose            Verbose output.
+Example:
+	$ $0 -s MySecret  ssh root@qsocket     # SSH over qsocket
+	$ $0 -s MySecret  rdesktop qsocket     # RDP over qsocket
+"
+}
+
+# 
+# ---------- START ----------
+# 
+
+if [ $# -eq 0 ]
+then
+    usage
+	exit
+fi
+
+# Check prerequisits...
+must_exist "md5sum" # "qs-netcat"
+# Create parameter variables and fefine defaut values
+QS_SO_BIN="/usr/lib/qsocket.so"
+QSOCKET_SECRET=""
+VERBOSE=""
+
+# Error codes
+ERR_DLSYM_FAILED=240   # dlsym call failed.
+ERR_INVALID_GATE=241   # Invalid qsocket gate IP value.
+ERR_INVALID_SECRET=242 # Invalid qsocket secret 
+ERR_INVALID_TAG=243    # Invalid qsocket tag value
+ERR_MALLOC_FAILED=244  # Malloc failed.
+ERR_KNOCK_FAILED=245   # Knock sequence failed.
+
+if [ ! -f "$QS_SO_BIN" ]; then
+	print_fatal "Qsocket library not found!"
+fi
+
+while [[ $# -gt 0 ]]; do
+	key="$1"
+	case $key in
+	-v | -verbose | --verbose)
+		VERBOSE="-v"
+		shift
+		shift
+		;;
+	-s | -secret | --secret)
+		QSOCKET_SECRET="$2"
+		shift
+		shift
+		;;
+	*) # unknown option
+		exec_with_qsocket $@
+		exit
+		;;
+	esac
+done
+
+
+
+
