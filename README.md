@@ -48,7 +48,7 @@ The Quantum Socket Toolkit comes with a set of tools:
 |     Tool      |                          **Build From Source**                           |                    **Binary Release**                     |
 | :-----------: | :----------------------------------------------------------------------: | :-------------------------------------------------------: |
 |  **qsocket**  | ```git clone https://github.com/qsocket/qsocket && cd qsocket && make``` |  [Download](https://github.com/qsocket/qsocket/releases)  |
-| **qs-netcat** |           ```go install github.com/qsocket/qs-netcat@latest```           | [Download](https://github.com/qsocket/qs-netcat/releases) |
+| **qs-netcat** |           ```go install github.com/qsocket/qs-netcat@master```           | [Download](https://github.com/qsocket/qs-netcat/releases) |
 |  **qs-mic**   |       ```cargo install --git https://github.com/qsocket/qs-mic```        |  [Download](https://github.com/qsocket/qs-mic/releases)   |
 |  **qs-lite**  |       ```cargo install --git https://github.com/qsocket/qs-lite```       |  [Download](https://github.com/qsocket/qs-lite/releases)  |
 
