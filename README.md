@@ -211,9 +211,9 @@ killall -0 qs-netcat 2>/dev/null || (QS_ARGS="-s MySecret -l -i -q" SHELL=/bin/b
 ```
 ---
 **Crypto / Security Mumble Jumble**
-- The connections are **NOT** end-2-end encrypted. This means the operators of the QSRN are able to see the flowing traffic. **But** you can always use your own encryption, QSRN is just a relay network.
-- The session key is 128 bit digest of the given secret.
-- A brute force attack against a weak secrets requires a new TCP connection for every guess. But QSRN contains a strong load balancer which is limiting the consecutive connection attempts.
+- The connections are end-2-end encrypted. This means from User-2-User (and not just to the Relay Network). The Relay Network relays only (encrypted) data to and from the Users.
+- The session key is 256 bit digest of the given secret.
+- A brute force attack against weak secrets requires a new TCP connection for every guess. But QSRN contains a strong load balancer which is limiting the consecutive connection attempts.
 - Do not use stupid passwords like 'password123'. Malice might pick the same (stupid) password by chance and connect. If in doubt use *qs-netcat -g* to generate a strong one. Alice's and Bob's password should at least be strong enough so that Malice can not guess it by chance while Alice is waiting for Bob to connect.
 - If Alice shares the same password with Bob and Charlie and either one of them connects then Alice can not tell if it is Bob or Charlie who connected.
 - Assume Alice shares the same password with Bob and Malice. When Alice stops listening for a connection then Malice could start to listen for the connection instead. Bob (when opening a new connection) can not tell if he is connecting to Alice or to Malice.
