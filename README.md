@@ -38,19 +38,21 @@ So why did you reinvent the wheel? Simply because we wanted our own wheel :) Due
 </div>
 
 The Quantum Socket Toolkit comes with a set of tools:
-* **qsocket** - Redirects the traffic of an existing program (binary) over the QSRN. It does so by hooking fundamental socket libraries inside libc using LD_PRELOAD method. (Experimental)
 * [**qs-netcat**](https://github.com/qsocket/qs-netcat) - Netcat on steroids. Turn netcat into an TLS encrypted reverse backdoor via TOR (optional) with a true PTY/interactive command shell (```qs-netcat -s MySecret -i```), integrated file-transfer, redirect traffic or give somebody temporary shell access.
 * [**qs-mic**](https://github.com/qsocket/qs-mic) - Access (record audio) the microphone devices of a remote system. (```qs-mic -s MySecret -d 10```)
+* [**qs-proxy**](https://github.com/qsocket/qs-proxy) - Redirects the traffic of an existing program (binary) over the QSRN. It does so by hooking fundamental socket libraries inside libc using LD_PRELOAD method. (Experimental)
 * ...many more examples and tools.
+* [**qs-lite**](https://github.com/qsocket/qs-netcat) - Lightweight version of qs-netcat utility written in pure Rust (no external dependency).
 
 ## Installation
 
 |     Tool      |                          **Build From Source**                           |                    **Binary Release**                     |
 | :-----------: | :----------------------------------------------------------------------: | :-------------------------------------------------------: |
-|  **qsocket**  | ```git clone https://github.com/qsocket/qsocket && cd qsocket && make``` |  [Download](https://github.com/qsocket/qsocket/releases)  |
 | **qs-netcat** |           ```go install github.com/qsocket/qs-netcat@master```           | [Download](https://github.com/qsocket/qs-netcat/releases) |
 |  **qs-mic**   |       ```cargo install --git https://github.com/qsocket/qs-mic```        |  [Download](https://github.com/qsocket/qs-mic/releases)   |
 |  **qs-lite**  |       ```cargo install --git https://github.com/qsocket/qs-lite```       |  [Download](https://github.com/qsocket/qs-lite/releases)  |
+|  **qsocket**  | ```git clone https://github.com/qsocket/qs-proxy && cd qs-proxy && make``` |  [Download](https://github.com/qsocket/qs-proxy/releases)  |
+
 
 ***Docker Install***
 
@@ -70,10 +72,10 @@ Qsocket toolkit supports 12 platforms on 11 architecture, check **Supported Plat
 
 |     Tool      | **Linux** | **Windows** | **Darwin** | **FreeBSD** | **OpenBSD** | **NetBSD** | **Android** | **IOS** | **Solaris** | **Illumos** | **Dragonfly** | **AIX** |
 | :-----------: | :-------: | :---------: | ---------- | ----------- | ----------- | ---------- | ----------- | ------- | ----------- | ----------- | ------------- | ------- |
-|  **qsocket**  |     ✅     |      ❌      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
 | **qs-netcat** |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ✅           | ✅       | ✅           | ✅           | ✅             | ✅       |
 |  **qs-lite**  |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ✅           | ✅       | ✅           | ✅           | ✅             | ✅       |
 |  **qs-mic**   |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
+|  **qs-proxy** |     ✅     |      ❌      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
 | ~**qs-cam**~  |     🚧     |      🚧      | 🚧          | 🚧           | 🚧           | 🚧          | 🚧           | 🚧       | 🚧           | 🚧           | 🚧             | 🚧       |
 
 </details>
@@ -103,7 +105,7 @@ https://user-images.githubusercontent.com/17179401/216651601-6ddc8ddf-7248-4c2b-
 - SSH from *Workstation B* to *Workstation A* through any firewall/NAT
 ```
 $ qs-netcat -f "localhost:22" -l  # Workstation A
-$ qsocket ssh root@qsocket        # Workstation B
+$ qs-proxy ssh root@qsocket        # Workstation B
 ```
 
 - Log in to Workstation A from Workstation B through any firewall/NAT
