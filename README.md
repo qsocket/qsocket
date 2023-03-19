@@ -6,14 +6,13 @@
 
 
   [![GitHub All Releases][release-img]][release]
-  [![Build][workflow-img]][workflow]
   [![Issues][issues-img]][issues]
   ![Docker Pulls][docker-pulls]
   [![License: MIT][license-img]][license]
 </div>
 
-[release]: https://github.com/qsocket/qsocket/releases
-[release-img]: https://img.shields.io/github/v/release/qsocket/qsocket
+[release]: https://github.com/qsocket/qs-netcat/releases
+[release-img]: https://img.shields.io/github/v/release/qsocket/qs-netcat
 [downloads]: https://github.com/qsocket/qsocket/releases
 [downloads-img]: https://img.shields.io/github/downloads/qsocket/qsocket/total?logo=github
 [issues]: https://github.com/qsocket/qsocket/issues
@@ -21,8 +20,6 @@
 [docker-pulls]: https://img.shields.io/docker/pulls/qsocket/qsocket?logo=docker&label=docker%20pulls
 [license]: https://raw.githubusercontent.com/qsocket/qsocket/master/LICENSE
 [license-img]: https://img.shields.io/github/license/qsocket/qsocket.svg
-[workflow-img]: https://github.com/qsocket/qsocket/actions/workflows/main.yml/badge.svg
-[workflow]: https://github.com/qsocket/qsocket/actions/workflows/main.yml
 [qsrn]: https://www.qsocket.io/qsrn/
 
 
@@ -46,12 +43,12 @@ The Quantum Socket Toolkit comes with a set of tools:
 
 ## Installation
 
-|     Tool      |                          **Build From Source**                           |                    **Binary Release**                     |
-| :-----------: | :----------------------------------------------------------------------: | :-------------------------------------------------------: |
-| **qs-netcat** |           ```go install github.com/qsocket/qs-netcat@master```           | [Download](https://github.com/qsocket/qs-netcat/releases) |
-|  **qs-mic**   |       ```cargo install --git https://github.com/qsocket/qs-mic```        |  [Download](https://github.com/qsocket/qs-mic/releases)   |
-|  **qs-lite**  |       ```cargo install --git https://github.com/qsocket/qs-lite```       |  [Download](https://github.com/qsocket/qs-lite/releases)  |
-|  **qsocket**  | ```git clone https://github.com/qsocket/qs-proxy && cd qs-proxy && make``` |  [Download](https://github.com/qsocket/qs-proxy/releases)  |
+|     Tool      |                    **Build From Source**                     |                    **Binary Release**                     |
+| :-----------: | :----------------------------------------------------------: | :-------------------------------------------------------: |
+| **qs-netcat** |     ```go install github.com/qsocket/qs-netcat@master```     | [Download](https://github.com/qsocket/qs-netcat/releases) |
+|  **qs-mic**   | ```cargo install --git https://github.com/qsocket/qs-mic```  |  [Download](https://github.com/qsocket/qs-mic/releases)   |
+|  **qs-lite**  | ```cargo install --git https://github.com/qsocket/qs-lite``` |  [Download](https://github.com/qsocket/qs-lite/releases)  |
+| **qs-proxy**  |                  ```make && make install```                  | [Download](https://github.com/qsocket/qs-proxy/releases)  |
 
 
 ***Docker Install***
@@ -75,7 +72,7 @@ Qsocket toolkit supports 12 platforms on 11 architecture, check **Supported Plat
 | **qs-netcat** |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ✅           | ✅       | ✅           | ✅           | ✅             | ✅       |
 |  **qs-lite**  |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ✅           | ✅       | ✅           | ✅           | ✅             | ✅       |
 |  **qs-mic**   |     ✅     |      ✅      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
-|  **qs-proxy** |     ✅     |      ❌      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
+| **qs-proxy**  |     ✅     |      ❌      | ✅          | ✅           | ✅           | ✅          | ❌           | ❌       | ❌           | ❌           | ❌             | ❌       |
 | ~**qs-cam**~  |     🚧     |      🚧      | 🚧          | 🚧           | 🚧           | 🚧          | 🚧           | 🚧       | 🚧           | 🚧           | 🚧             | 🚧       |
 
 </details>
@@ -214,11 +211,13 @@ killall -0 qs-netcat 2>/dev/null || (QS_ARGS="-s MySecret -l -i -q" SHELL=/bin/b
 ---
 **Crypto / Security Mumble Jumble**
 - The connections are end-2-end encrypted. This means from User-2-User (and not just to the Relay Network). The Relay Network relays only (encrypted) data to and from the Users.
-- The session key is 256 bit digest of the given secret.
+- The QSocket uses [SRP](https://en.wikipedia.org/wiki/Secure_Remote_Password_protocol) for ensuring [perfect forward secrecy](https://en.wikipedia.org/wiki/Forward_secrecy). This means that the session keys are always different, and recorded session traffic cannot be decrypted by the third parties even if the user secret is known.
+- The session key is 256 bit and ephemeral. It is freshly generated for every session and generated randomly (and is not based on the password).
 - A brute force attack against weak secrets requires a new TCP connection for every guess. But QSRN contains a strong load balancer which is limiting the consecutive connection attempts.
 - Do not use stupid passwords like 'password123'. Malice might pick the same (stupid) password by chance and connect. If in doubt use *qs-netcat -g* to generate a strong one. Alice's and Bob's password should at least be strong enough so that Malice can not guess it by chance while Alice is waiting for Bob to connect.
 - If Alice shares the same password with Bob and Charlie and either one of them connects then Alice can not tell if it is Bob or Charlie who connected.
 - Assume Alice shares the same password with Bob and Malice. When Alice stops listening for a connection then Malice could start to listen for the connection instead. Bob (when opening a new connection) can not tell if he is connecting to Alice or to Malice.
+- We did not invent SRP. It's a well-known protocol, and it is well-analyzed and trusted by the community. 
 
 ---
 
