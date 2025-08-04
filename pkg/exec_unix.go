@@ -15,7 +15,6 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/google/shlex"
-	"github.com/qsocket/qs-netcat/log"
 	qsocket "github.com/qsocket/qsocket-go"
 	"golang.org/x/sys/unix"
 )
@@ -52,37 +51,23 @@ func ExecCommand(conn *qsocket.QSocket, specs SessionSpecs) error {
 		cmd = exec.Command(params[0], params[1:]...)
 	}
 
-	if specs.Interactive {
-
-		// Start the command with a pty.
-		ptmx, err := pty.StartWithSize(
-			cmd,
-			&pty.Winsize{Cols: specs.TermSize.Cols, Rows: specs.TermSize.Rows},
-		)
-		if err != nil {
-			return err
-		}
-
-		// Make sure to close the pty at the end.
-		defer ptmx.Close() // Best effort.
-
-		// Copy stdin to the pty and the pty to stdout.
-		// NOTE: The goroutine will keep reading until the next keystroke before returning.
-		go io.Copy(ptmx, conn)
-		io.Copy(conn, ptmx)
-		return nil
-	} else {
-		// Handle pty size.
-		err = pty.Setsize(os.Stdin, &pty.Winsize{Rows: specs.TermSize.Rows, Cols: specs.TermSize.Cols})
-		if err != nil {
-			log.Error(err)
-		}
+	// Start the command with a pty.
+	ptmx, err := pty.StartWithSize(
+		cmd,
+		&pty.Winsize{Cols: specs.TermSize.Cols, Rows: specs.TermSize.Rows},
+	)
+	if err != nil {
+		return err
 	}
 
-	cmd.Stdin = conn
-	cmd.Stdout = conn
-	cmd.Stderr = conn
-	return cmd.Run()
+	// Make sure to close the pty at the end.
+	defer ptmx.Close() // Best effort.
+
+	// Copy stdin to the pty and the pty to stdout.
+	// NOTE: The goroutine will keep reading until the next keystroke before returning.
+	go io.Copy(ptmx, conn)
+	io.Copy(conn, ptmx)
+	return nil
 }
 
 func GetCurrentTermSize() (*Winsize, error) {
