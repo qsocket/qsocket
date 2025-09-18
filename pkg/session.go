@@ -12,7 +12,7 @@ type SessionSpecs struct {
 	Command     string
 	ForwardAddr string
 	TermSize    Winsize
-	// Interactive bool
+	Interactive bool
 }
 
 // Winsize describes the terminal window size
@@ -46,7 +46,7 @@ func SendSessionSpecs(qs *qsocket.QSocket, opts *config.Options) error {
 			X:    ws.X,
 			Y:    ws.Y,
 		},
-		// Interactive: opts.Interactive,
+		Interactive: opts.Interactive,
 	}
 	buf := bytes.Buffer{}
 	enc := gob.NewEncoder(&buf)

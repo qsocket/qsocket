@@ -9,12 +9,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync/atomic"
 
 	// "syscall"
 	"unsafe"
 
 	"github.com/creack/pty"
 	"github.com/google/shlex"
+	"github.com/qsocket/qs-netcat/log"
 	qsocket "github.com/qsocket/qsocket-go"
 	"golang.org/x/sys/unix"
 )
@@ -22,8 +24,10 @@ import (
 const SHELL = "/bin/bash -il"
 
 var (
-	PtyHeight int = 39
-	PtyWidth  int = 157
+	PtyHeight      int = 39
+	PtyWidth       int = 157
+	RawPty         atomic.Bool
+	ErrRawPtyInUse = errors.New("Raw PTY is already in use.")
 )
 
 func ExecCommand(conn *qsocket.QSocket, specs SessionSpecs) error {
@@ -51,23 +55,41 @@ func ExecCommand(conn *qsocket.QSocket, specs SessionSpecs) error {
 		cmd = exec.Command(params[0], params[1:]...)
 	}
 
-	// Start the command with a pty.
-	ptmx, err := pty.StartWithSize(
-		cmd,
-		&pty.Winsize{Cols: specs.TermSize.Cols, Rows: specs.TermSize.Rows},
-	)
-	if err != nil {
-		return err
+	if !specs.Interactive && RawPty.Load() {
+		return ErrRawPtyInUse
 	}
 
-	// Make sure to close the pty at the end.
-	defer ptmx.Close() // Best effort.
+	if specs.Interactive {
+		// Start the command with a pty.
+		ptmx, err := pty.StartWithSize(
+			cmd,
+			&pty.Winsize{Cols: specs.TermSize.Cols, Rows: specs.TermSize.Rows},
+		)
+		if err != nil {
+			return err
+		}
 
-	// Copy stdin to the pty and the pty to stdout.
-	// NOTE: The goroutine will keep reading until the next keystroke before returning.
-	go io.Copy(ptmx, conn)
-	io.Copy(conn, ptmx)
-	return nil
+		// Make sure to close the pty at the end.
+		defer ptmx.Close() // Best effort.
+
+		// Copy stdin to the pty and the pty to stdout.
+		// NOTE: The goroutine will keep reading until the next keystroke before returning.
+		go io.Copy(ptmx, conn)
+		io.Copy(conn, ptmx)
+		return nil
+	} else {
+		// Handle pty size.
+		err = pty.Setsize(os.Stdin, &pty.Winsize{Rows: specs.TermSize.Rows, Cols: specs.TermSize.Cols})
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	RawPty.Store(true)
+	cmd.Stdin = conn
+	cmd.Stdout = conn
+	cmd.Stderr = conn
+	return cmd.Run()
 }
 
 func GetCurrentTermSize() (*Winsize, error) {
