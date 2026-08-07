@@ -1,18 +1,22 @@
 package main
 
 import (
-	"io"
+	"context"
 	"os"
-	"time"
 
 	"github.com/qsocket/qs-netcat/config"
 	"github.com/qsocket/qs-netcat/log"
 	qsnetcat "github.com/qsocket/qs-netcat/pkg"
 	"github.com/qsocket/qs-netcat/utils"
-	"github.com/qsocket/qsocket-go"
 )
 
 func main() {
+	// Determine the execution mode before parsing the options, processes
+	// started by the Windows service control manager have no console attached
+	// so all interactive prompts needs to be disabled.
+	isService := qsnetcat.IsWindowsService()
+	config.NoPrompt = isService
+
 	// Configure the options from the flags/config file
 	opts, err := config.ConfigureOptions()
 	if err != nil || opts == nil {
@@ -22,35 +26,24 @@ func main() {
 	if opts.RandomSecret {
 		opts.Secret = utils.RandomString(20)
 	}
-	opts.Summarize()
 
-	if opts.Listen {
-		go utils.WaitForExitSignal(os.Interrupt)
-		firstRun := true
-		log.Info("Listening for connections...")
-		for {
-			if !firstRun {
-				time.Sleep(time.Duration(opts.ProbeInterval) * time.Second)
-			} else {
-				firstRun = false
-			}
-			err := qsnetcat.ProbeQSRN(opts)
-			if err != nil {
-				switch err {
-				case qsocket.ErrPeerNotFound, io.EOF:
-					log.Debug(err)
-				case qsocket.ErrServerCollision:
-					log.Fatal(err)
-				default:
-					log.Error(err)
-				}
-			}
+	// Hand the execution over to the SCM dispatcher when started as a service.
+	if isService {
+		err = qsnetcat.RunService(opts)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
 		}
-
+		return
 	}
 
-	err = qsnetcat.Connect(opts)
-	if err != nil && err != io.EOF {
+	opts.Summarize()
+	if opts.Listen {
+		go utils.WaitForExitSignal(os.Interrupt)
+	}
+
+	err = qsnetcat.Run(context.Background(), opts)
+	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}

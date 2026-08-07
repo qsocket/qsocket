@@ -33,6 +33,9 @@ Example for a reverse shell:
 var (
 	ForwardAddrRgx = regexp.MustCompile(`(?P<lport>([0-9]{1,5}):|)(?P<rhost>(?:[0-9]{1,3}\.){3}[0-9]{1,3}):(?P<rport>[0-9]{1,5})`)
 	Version        = "?"
+	// NoPrompt disables all interactive terminal prompts, it is used when the
+	// process has no console attached such as when running as a Windows service.
+	NoPrompt = false
 )
 
 // Main config struct for parsing the TOML file
@@ -154,6 +157,11 @@ func ConfigureOptions() (*Options, error) {
 	}
 
 	if !opts.RandomSecret && opts.Secret == "" {
+		// A randomly generated secret is useless when there is no console to
+		// print it on, so a secret needs to be supplied via flags or QS_ARGS.
+		if NoPrompt {
+			return nil, errors.New("No secret specified.")
+		}
 		color.New(color.FgBlue).Add(color.Bold).Print("[>] ")
 		print("Enter Secret (or press Enter to generate): ")
 		n, _ := fmt.Scanln(&opts.Secret)

@@ -1,6 +1,7 @@
 package qsnetcat
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +23,59 @@ var (
 	ErrUntrustedCert     = errors.New("Certificate fingerprint mismatch")
 	spn                  = spinner.New(spinner.CharSets[9], 50*time.Millisecond)
 )
+
+// Run executes qs-netcat with the given options, either in server (listen)
+// or client mode. It returns when the work is complete, when an unrecoverable
+// error occurs, or when the given context is cancelled.
+//
+// This is the common entry point shared by the console and the Windows
+// service execution modes.
+func Run(ctx context.Context, opts *config.Options) error {
+	if opts == nil {
+		return errors.New("Options are not initialized")
+	}
+	if opts.Listen {
+		return Serve(ctx, opts)
+	}
+	err := Connect(opts)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	return nil
+}
+
+// Serve probes the QSRN for incoming connections until the given context is
+// cancelled. Recoverable errors are logged and retried on the next probe
+// interval, unrecoverable ones (such as a server tag collision) are returned.
+//
+// Cancelling the context stops the probe loop, it does not interrupt an
+// in-flight probe or terminate the sessions that are already established.
+func Serve(ctx context.Context, opts *config.Options) error {
+	log.Info("Listening for connections...")
+	for firstRun := true; ; firstRun = false {
+		if !firstRun {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Duration(opts.ProbeInterval) * time.Second):
+			}
+		}
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		err := ProbeQSRN(opts)
+		switch err {
+		case nil:
+		case qsocket.ErrPeerNotFound, io.EOF:
+			log.Debug(err)
+		case qsocket.ErrServerCollision:
+			return err
+		default:
+			log.Error(err)
+		}
+	}
+}
 
 func ProbeQSRN(opts *config.Options) error {
 	// This is nessesary for persistence on windows

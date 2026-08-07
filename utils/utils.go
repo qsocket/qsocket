@@ -29,7 +29,10 @@ func EnableSmartPipe() {
 func IsFilePiped(f *os.File) bool {
 	fs, err := f.Stat()
 	if err != nil {
-		log.Error(err)
+		// Processes with no console attached (e.g. Windows services) have no
+		// valid standard handles to stat, hence nothing is piped.
+		log.Debug(err)
+		return false
 	}
 	return (fs.Mode() & os.ModeCharDevice) == 0
 }
