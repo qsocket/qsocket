@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/fatih/color"
-	"github.com/qsocket/qs-netcat/log"
+	"github.com/qsocket/qsocket/log"
 )
 
 var (
@@ -44,6 +44,11 @@ func PrintFatal(format string, a ...any) {
 
 func PrintStatus(format string, a ...any) {
 	fmt.Printf("%s ", Yellow.Sprintf("[*]"))
+	fmt.Printf(format, a...)
+}
+
+func PrintSuccess(format string, a ...any) {
+	fmt.Printf("%s ", BoldGreen.Sprintf("[+]"))
 	fmt.Printf(format, a...)
 }
 

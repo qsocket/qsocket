@@ -1,14 +1,14 @@
 //go:build windows
 // +build windows
 
-package qsnetcat
+package qsock
 
 import (
 	"context"
 	"time"
 
-	"github.com/qsocket/qs-netcat/config"
-	"github.com/qsocket/qs-netcat/log"
+	"github.com/qsocket/qsocket/config"
+	"github.com/qsocket/qsocket/log"
 	"golang.org/x/sys/windows/svc"
 )
 

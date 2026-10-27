@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package qsnetcat
+package qsock
 
 import (
 	"context"
@@ -11,43 +11,50 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/google/shlex"
 	conpty "github.com/qsocket/conpty-go"
-	"github.com/qsocket/qs-netcat/log"
-	qsocket "github.com/qsocket/qsocket-go"
+	"github.com/qsocket/qsocket/log"
+	"github.com/qsocket/qsocket/session"
 )
 
 // const ATTACH_PARENT_PROCESS = ^uintptr(0)
-const SHELL = "cmd.exe"
+const (
+	// SHELL is the shell spawned for the sessions carrying no command, it
+	// also interprets the command lines sent by the connecting peers.
+	SHELL = "cmd.exe"
+)
 
 // func init() {
 // 	proc := syscall.MustLoadDLL("KERNEL32.dll").MustFindProc("AttachConsole")
 // 	proc.Call(ATTACH_PARENT_PROCESS) // We need this to get console output when using windowsgui subsystem.
 // }
 
-func ExecCommand(conn *qsocket.QSocket, specs SessionSpecs) error {
-	// If non specified spawn OS shell...
-	if specs.Command == "" {
-		specs.Command = SHELL
+// commandLine returns the command line spawned for the given session specs.
+//
+// A command line sent by the connecting peer is handed over to the shell, so
+// that its quoting and redirections behave the way they would over a regular
+// ssh connection.
+func commandLine(specs *session.SessionSpecs) string {
+	if specs.Exec == "" {
+		return SHELL
 	}
+	return SHELL + " /c " + specs.Exec
+}
 
+// ExecCommand runs the command of the given session specs and redirects its
+// standard streams into the session.
+func ExecCommand(conn Session, specs *session.SessionSpecs) error {
 	defer conn.Close()
-	params, err := shlex.Split(specs.Command)
-	if err != nil {
-		return err
-	}
+	cmdLine := commandLine(specs)
+
 	ncDir, err := filepath.Abs(os.Args[0]) // Get the full path of the executalbe.
 	if err != nil {
 		return err
 	}
-	os.Setenv("qs_netcat", ncDir) // Set binary dir to env variable for easy access.
-	cmd := exec.Command(params[0])
-	if len(params) > 1 {
-		cmd = exec.Command(params[0], params[1:]...)
-	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // Hide new process window
-	if specs.Interactive {
-		cpty, err := conpty.Start(specs.Command)
+	os.Setenv("qsock", ncDir)     // Set binary dir to env variable for easy access.
+	os.Setenv("qs_netcat", ncDir) // Kept for the scripts written against the old releases.
+
+	if specs.Has(session.FLAG_PTY) {
+		cpty, err := conpty.Start(cmdLine)
 		if err != nil {
 			return err
 		}
@@ -66,12 +73,15 @@ func ExecCommand(conn *qsocket.QSocket, specs SessionSpecs) error {
 		return err
 	}
 
+	// The command line is passed to the shell verbatim, letting os/exec
+	// quote it would change what the connecting peer asked for.
+	cmd := exec.Command(SHELL)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true, // Hide new process window
+		CmdLine:    cmdLine,
+	}
 	cmd.Stdin = conn
 	cmd.Stdout = conn
 	cmd.Stderr = conn
 	return cmd.Run()
-}
-
-func GetCurrentTermSize() (*Winsize, error) {
-	return &Winsize{Cols: 80, Rows: 40}, nil
 }

@@ -1,12 +1,12 @@
 //go:build !windows
 // +build !windows
 
-package qsnetcat
+package qsock
 
 import (
 	"errors"
 
-	"github.com/qsocket/qs-netcat/config"
+	"github.com/qsocket/qsocket/config"
 )
 
 // ErrNoServiceSupport is returned when the service control manager routines

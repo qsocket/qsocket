@@ -1,60 +1,91 @@
-
 name: build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-all:
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.21
-    - name: Make All Targets
-      run: make all
+        go-version-file: go.mod
+    - name: Vet & Test
+      run: make test
+
+  smoke:
+    name: run (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Make Build
+      run: make
+    - name: Test Run
+      shell: bash
+      run: ./build/qsock${{ runner.os == 'Windows' && '.exe' || '' }} -g
+
+  # The build matrix is the target list of the Makefile, so a new port of the
+  # Go toolchain is built as soon as the toolchain reports it.
+  targets:
+    name: list targets
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: List Targets
+      id: list
+      run: |
+        echo "matrix=$(make -s targets | jq -Rsc 'split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # The version is stamped from `git describe`, which needs the tags.
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Make Target
+      run: make ${{ matrix.target }}
+    - name: Artifact Name
+      id: artifact
+      env:
+        TARGET: ${{ matrix.target }}
+      run: echo "name=qsock_${TARGET%/*}_${TARGET#*/}" >> "$GITHUB_OUTPUT"
     - name: 'Upload Artifact'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: qs-netcat_all_builds
-        path: ./build/*
-        retention-days: 5
-  macos-run:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-    - name: Make Build
-      run: make
-    - name: Test Run
-      run: ./build/qs-netcat -g
-  linux-run:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-    - name: Make Build
-      run: make
-    - name: Test Run
-      run: ./build/qs-netcat -g
-  windows-run:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-    - name: Make Build
-      run: make
-    - name: Test Run
-      run: ./build/qs-netcat.exe -g
+        name: ${{ steps.artifact.outputs.name }}
+        path: build/*/qsock-*
+        if-no-files-found: error
+        retention-days: 30
