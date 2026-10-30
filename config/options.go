@@ -428,7 +428,7 @@ func (opts *Options) finalize(allowPipes bool) error {
 // printSecret prints a generated secret in its URI form.
 func printSecret(secret string, qr bool) {
 	uri := URI(secret)
-	fmt.Println(uri)
+	fmt.Print(uri)
 	if qr {
 		printQR(uri)
 	}
