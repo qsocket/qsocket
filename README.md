@@ -144,7 +144,9 @@ Flags:
                                 server.
   -n, --probe=5                 Probe interval for connecting QSRN.
   -C, --plain                   Disable all encryption.
-      --e2e                     Use E2E encryption. (default:true)
+      --[no-]tls                Use TLS on the connection to the relay server.
+                                (default:true)
+      --[no-]e2e                Use E2E encryption. (default:true)
   -l, --listen                  Server mode. (listen for connections)
   -g, --generate                Generate a new address. (random)
   -K, --pin                     Enable certificate pinning on TLS connections.

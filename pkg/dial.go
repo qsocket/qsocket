@@ -35,9 +35,9 @@ func setGate(opts *config.Options) {
 		if sni := opts.GateSNI(); sni != "" {
 			qsocket.QSRN_GATE_SNI = sni
 		}
-		port := qsocket.QSRN_GATE_TLS_PORT
-		if opts.DisableEnc {
-			port = qsocket.QSRN_GATE_PORT
+		port := qsocket.QSRN_GATE_PORT
+		if opts.TLS {
+			port = qsocket.QSRN_GATE_TLS_PORT
 		}
 		log.Debugf("Using QSRN gate %s:%d (SNI: %s)",
 			qsocket.QSRN_GATE, port, qsocket.QSRN_GATE_SNI)
@@ -76,7 +76,7 @@ func DialQSRN(opts *config.Options) (*qsocket.QSocket, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := qs.Dial(!opts.DisableEnc); err != nil {
+	if err := qs.Dial(opts.TLS); err != nil {
 		return nil, err
 	}
 	return qs, nil

@@ -199,17 +199,20 @@ func TestConfigurePlainSecret(t *testing.T) {
 }
 
 func TestConfigureGlobals(t *testing.T) {
-	opts := configure(t, "-C", "-n", "11", "--cert-fp", "deadbeef", "netcat", "qs://MySecret")
+	opts := configure(t, "-C", "-n", "11", "netcat", "qs://MySecret")
 	if !opts.DisableEnc {
 		t.Error("-C did not disable the encryption")
 	}
 	if opts.End2End {
 		t.Error("-C left the E2E layer on")
 	}
+	if opts.TLS {
+		t.Error("-C left the TLS layer on")
+	}
 	if opts.ProbeInterval != 11 {
 		t.Errorf("got probe interval %d, want 11", opts.ProbeInterval)
 	}
-	if opts.CertFingerprint != "deadbeef" {
+	if opts = configure(t, "--cert-fp", "deadbeef", "netcat", "qs://MySecret"); opts.CertFingerprint != "deadbeef" {
 		t.Errorf("got fingerprint %q, want %q", opts.CertFingerprint, "deadbeef")
 	}
 
@@ -218,6 +221,39 @@ func TestConfigureGlobals(t *testing.T) {
 	}
 	if opts = configure(t, "netcat", "qs://MySecret"); !opts.End2End {
 		t.Error("the E2E layer is not on by default")
+	}
+	if !opts.TLS {
+		t.Error("the TLS layer is not on by default")
+	}
+}
+
+func TestConfigureEncryptionLayers(t *testing.T) {
+	for _, tc := range []struct {
+		args     []string
+		tls, e2e bool
+	}{
+		{[]string{"--no-tls"}, false, true},
+		{[]string{"--tls=false"}, false, true},
+		{[]string{"--no-e2e"}, true, false},
+		{[]string{"--e2e=false"}, true, false},
+		{[]string{"--no-tls", "--no-e2e"}, false, false},
+		{[]string{"--tls", "--e2e"}, true, true},
+	} {
+		args := append(tc.args, "netcat", "qs://MySecret")
+		opts := configure(t, args...)
+		if opts.TLS != tc.tls || opts.End2End != tc.e2e {
+			t.Errorf("qsock %s: got tls=%t e2e=%t, want tls=%t e2e=%t",
+				strings.Join(args, " "), opts.TLS, opts.End2End, tc.tls, tc.e2e)
+		}
+	}
+
+	for _, args := range [][]string{
+		{"--no-tls", "--cert-fp", "deadbeef", "netcat", "qs://MySecret"},
+		{"-C", "--cert-fp", "deadbeef", "netcat", "qs://MySecret"},
+	} {
+		if _, err := Configure(args, false); err != ErrCertWithoutTLS {
+			t.Errorf("qsock %s: got %v, want %v", strings.Join(args, " "), err, ErrCertWithoutTLS)
+		}
 	}
 }
 

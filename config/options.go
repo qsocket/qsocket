@@ -35,6 +35,7 @@ var (
 	ErrNoSecret          = errors.New("No secret specified.")
 	ErrSocksNotSupported = errors.New("SOCKS proxy support is not implemented yet, this feature is still in development!")
 	ErrSCPMissingArgs    = errors.New("scp: missing source or destination operand")
+	ErrCertWithoutTLS    = errors.New("--cert-fp requires TLS, it cannot be used with --no-tls or --plain.")
 	ErrSCPBothRemote     = errors.New("scp: copying between two remote peers is not supported")
 	ErrSCPNoRemote       = errors.New("scp: either the source or the destination needs to be a qs:// URI")
 	ErrSCPServerArgs     = errors.New("scp: server mode takes a single qs:// URI, the paths are chosen by the connecting peer")
@@ -78,6 +79,9 @@ type Options struct {
 	ProbeInterval int
 	// DisableEnc turns off every layer of encryption.
 	DisableEnc bool
+	// TLS turns on the TLS layer of the connection to the relay network
+	// gate, it is independent of the end to end encrypted session layer.
+	TLS bool
 	// End2End turns on the end to end encrypted session layer.
 	End2End bool
 	// Listen runs the process in server mode.
@@ -220,6 +224,7 @@ func newOptions(g *Globals) (*Options, error) {
 		CertFingerprint: g.CertFingerprint,
 		ProbeInterval:   g.ProbeInterval,
 		DisableEnc:      g.DisableEnc,
+		TLS:             g.TLS,
 		End2End:         g.End2End,
 		Listen:          g.Listen,
 		RandomAddress:   g.RandomAddress,
@@ -239,7 +244,13 @@ func newOptions(g *Globals) (*Options, error) {
 		opts.SocksAddr = TOR_SOCKS_ADDR
 	}
 	if opts.DisableEnc {
+		opts.TLS = false
 		opts.End2End = false
+	}
+	// The fingerprint is checked against the certificate presented in the
+	// TLS handshake, without one it would be silently ignored.
+	if !opts.TLS && g.CertFingerprint != "" {
+		return nil, ErrCertWithoutTLS
 	}
 
 	if g.RelayServer != "" {
@@ -475,11 +486,16 @@ func (opts *Options) Summarize() {
 	if opts.Listen {
 		mode = "server"
 	}
-	encType := DEFAULT_E2E_CIPHER
-	if opts.DisableEnc {
-		encType = utils.Red.Sprintf("DISABLED")
-	} else if !opts.End2End {
+	var encType string
+	switch {
+	case opts.TLS && opts.End2End:
+		encType = "TLS + " + DEFAULT_E2E_CIPHER
+	case opts.End2End:
+		encType = DEFAULT_E2E_CIPHER + utils.Red.Sprintf(" (no TLS)")
+	case opts.TLS:
 		encType = "TLS"
+	default:
+		encType = utils.Red.Sprintf("DISABLED")
 	}
 
 	fmt.Printf("%s %s\n", utils.BoldYellow.Sprintf("[#]"), utils.BoldBlue.Sprintf(".::QSocket::."))

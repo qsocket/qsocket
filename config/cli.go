@@ -45,7 +45,8 @@ type Globals struct {
 	RelaySNI        string           `help:"Spoof the TLS server name indicated to the relay server." name:"relay-sni" placeholder:"HOST"`
 	ProbeInterval   int              `help:"Probe interval for connecting QSRN." name:"probe" short:"n" default:"5"`
 	DisableEnc      bool             `help:"Disable all encryption." name:"plain" short:"C"`
-	End2End         bool             `help:"Use E2E encryption. (default:true)" name:"e2e" default:"true"`
+	TLS             bool             `help:"Use TLS on the connection to the relay server. (default:true)" name:"tls" default:"true" negatable:""`
+	End2End         bool             `help:"Use E2E encryption. (default:true)" name:"e2e" default:"true" negatable:""`
 	Listen          bool             `help:"Server mode. (listen for connections)" name:"listen" short:"l"`
 	RandomAddress   bool             `help:"Generate a new address. (random)" name:"generate" short:"g"`
 	CertPinning     bool             `help:"Enable certificate pinning on TLS connections." name:"pin" short:"K"`
