@@ -37,26 +37,14 @@ func TestParseURI(t *testing.T) {
 		t.Errorf("got %q, want %q", got, uuid)
 	}
 
-	// The scheme is optional, a bare value is taken as a plain secret and
-	// resolves to the same identifier as its URI form.
-	for _, value := range []string{"ElDdawDNV4Quz5SolGWT", uuid, strings.ToUpper(uuid)} {
-		want, err := ParseURI(URI_SCHEME + value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err := ParseURI(value)
-		if err != nil {
-			t.Errorf("ParseURI(%q) failed: %v", value, err)
-			continue
-		}
-		if got != want {
-			t.Errorf("ParseURI(%q) = %q, want %q", value, got, want)
-		}
-	}
-
-	// A mistyped or foreign scheme is a mistake, not a secret, deriving
-	// one from it would leave the peers under two identifiers.
-	for _, uri := range []string{"", "qs:/secret", "qs:secret", "http://secret", "qs://"} {
+	// The scheme is mandatory for every kind of secret, a value carrying
+	// none or a mistyped one is rejected rather than hashed into a secret
+	// of its own, which would leave the peers under two identifiers.
+	for _, uri := range []string{
+		"", "qs://",
+		"ElDdawDNV4Quz5SolGWT", uuid, strings.ToUpper(uuid),
+		"qs:/secret", "qs:secret", "QS://secret", "http://secret",
+	} {
 		if _, err := ParseURI(uri); err == nil {
 			t.Errorf("ParseURI(%q) accepted an invalid URI", uri)
 		}

@@ -145,11 +145,10 @@ func Configure(args []string, allowPipes bool) (*Options, error) {
 	if IsCommand(bare) || (bare == "" && hasHelpFlag(args)) {
 		return configureCommand(args, allowPipes)
 	}
-	// Anything else is the secret of a subcommand-less invocation, either
-	// a qs:// URI or a plain secret. A subcommand-less invocation carries
-	// nothing but its secret, so a second bare argument means the first
-	// one was meant to name a subcommand.
-	if bare != "" && !IsURI(bare) && countBareArgs(args) > 1 {
+	// Anything else is the qs:// URI of a subcommand-less invocation, a
+	// bare argument carrying no scheme is either a mistyped subcommand or
+	// a secret missing its mandatory scheme.
+	if bare != "" && !IsURI(bare) {
 		return nil, fmt.Errorf(
 			"Unexpected argument %q, expected a QSocket secret (%s<secret>) or one of: %s",
 			bare, URI_SCHEME, strings.Join(CommandNames(), ", "),
@@ -398,7 +397,7 @@ func (opts *Options) setSecret(uri string) error {
 // a random one.
 func (opts *Options) promptSecret() error {
 	color.New(color.FgBlue).Add(color.Bold).Print("[>] ")
-	print("Enter secret (or press Enter to generate): ")
+	print("Enter secret URI, qs://<secret> (or press Enter to generate): ")
 	answer := ""
 	if n, _ := fmt.Scanln(&answer); n == 0 {
 		secret, err := RandomUUID()
@@ -410,8 +409,7 @@ func (opts *Options) promptSecret() error {
 		return nil
 	}
 
-	// Both the bare secret and the full URI are accepted, the prompt is
-	// already unambiguous about what it is asking for.
+	// The prompt takes the same qs:// URI as the command line does.
 	secret, err := ParseURI(strings.TrimSpace(answer))
 	opts.Secret = secret
 	return err

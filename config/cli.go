@@ -14,9 +14,8 @@ Examples:
   # Listen for incoming sessions, serves every subcommand. (remote peer)
   $ qsock -l qs://<secret>
 
-  # Open an interactive session. (the qs:// scheme is optional)
+  # Open an interactive session.
   $ qsock ssh qs://<secret>
-  $ qsock ssh <secret>
 
   # Run a single command on the remote peer.
   $ qsock ssh qs://<secret> "uname -a; id"
@@ -62,7 +61,7 @@ type SSHCmd struct {
 	Forwards  []string `help:"Forward a local port to a destination reached by the remote peer. (repeatable)" short:"L" name:"local-forward" sep:"none" placeholder:"[bind:]port:host:hostport"`
 	SocksPort int      `help:"Open a SOCKS proxy on the given local port. (in development)" short:"D" name:"dynamic-forward" placeholder:"PORT"`
 	NoExec    bool     `help:"Do not execute a remote command, implied by -L. (port forwarding only)" short:"N" name:"no-exec"`
-	URI       string   `arg:"" optional:"" name:"uri" help:"QSocket secret URI or plain secret. (qs://<secret>)"`
+	URI       string   `arg:"" optional:"" name:"uri" help:"QSocket secret URI. (qs://<secret>)"`
 	Exec      []string `arg:"" optional:"" passthrough:"" name:"command" help:"Command to execute on the remote peer."`
 }
 
@@ -79,7 +78,7 @@ type SCPCmd struct {
 
 // NetcatCmd is the grammar of the netcat subcommand.
 type NetcatCmd struct {
-	URI  string   `arg:"" optional:"" name:"uri" help:"QSocket secret URI or plain secret. (qs://<secret>)"`
+	URI  string   `arg:"" optional:"" name:"uri" help:"QSocket secret URI. (qs://<secret>)"`
 	Exec []string `arg:"" optional:"" passthrough:"" name:"command" help:"Command to execute on the remote peer."`
 }
 
@@ -100,7 +99,7 @@ type CLI struct {
 type ServerCLI struct {
 	Globals
 
-	URI string `arg:"" optional:"" name:"uri" help:"QSocket secret URI or plain secret. (qs://<secret>)"`
+	URI string `arg:"" optional:"" name:"uri" help:"QSocket secret URI. (qs://<secret>)"`
 }
 
 // commandNames are the subcommands accepted on the command line, in the
@@ -136,23 +135,6 @@ func firstBareArg(args []string) string {
 		return arg
 	}
 	return ""
-}
-
-// countBareArgs returns the number of arguments which are neither a flag nor
-// the value of one.
-func countBareArgs(args []string) int {
-	count := 0
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if strings.HasPrefix(arg, "-") && arg != "-" {
-			if valueFlags[arg] {
-				i++
-			}
-			continue
-		}
-		count++
-	}
-	return count
 }
 
 // IsCommand reports whether the given value names one of the subcommands.

@@ -162,31 +162,22 @@ func TestConfigureServerMode(t *testing.T) {
 	}
 }
 
-func TestConfigurePlainSecret(t *testing.T) {
-	secret, err := NewSecret("MySecret")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// The qs:// scheme is optional wherever a secret is expected, a bare
-	// value is taken as a plain ASCII secret.
+func TestConfigureSchemeIsMandatory(t *testing.T) {
+	// The qs:// scheme is mandatory wherever a secret is expected, a UUID
+	// or a plain secret carrying no scheme is rejected, as is a mistyped
+	// scheme or subcommand.
+	uuid := "f81d4fae-7dec-41d0-a765-00a0c91e6bf6"
 	for _, args := range [][]string{
 		{"MySecret"},
+		{uuid},
 		{"-l", "MySecret"},
+		{"-l", uuid},
 		{"ssh", "MySecret"},
+		{"ssh", uuid},
 		{"netcat", "MySecret"},
 		{"ssh", "-N", "-L", "2222:localhost:22", "MySecret"},
 		{"-l", "scp", "MySecret"},
-	} {
-		if got := configure(t, args...).Secret; got != secret {
-			t.Errorf("qsock %s: got secret %q, want %q",
-				strings.Join(args, " "), got, secret)
-		}
-	}
-
-	// A mistyped scheme is rejected instead of being hashed into a secret
-	// of its own, and a mistyped subcommand is still reported as one.
-	for _, args := range [][]string{
+		{"-l", "ssh", uuid, "/bin/zsh"},
 		{"qs:/MySecret"},
 		{"http://MySecret"},
 		{"ssh", "qs:/MySecret"},
@@ -194,6 +185,26 @@ func TestConfigurePlainSecret(t *testing.T) {
 	} {
 		if _, err := Configure(args, false); err == nil {
 			t.Errorf("qsock %s was accepted", strings.Join(args, " "))
+		}
+	}
+
+	// The same secrets are accepted in their URI form.
+	for _, value := range []string{"MySecret", uuid} {
+		want, err := NewSecret(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{
+			{URI_SCHEME + value},
+			{"-l", URI_SCHEME + value},
+			{"ssh", URI_SCHEME + value},
+			{"netcat", URI_SCHEME + value},
+			{"-l", "scp", URI_SCHEME + value},
+		} {
+			if got := configure(t, args...).Secret; got != want {
+				t.Errorf("qsock %s: got secret %q, want %q",
+					strings.Join(args, " "), got, want)
+			}
 		}
 	}
 }

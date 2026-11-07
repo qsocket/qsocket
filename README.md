@@ -189,19 +189,19 @@ the previous releases stay usable with the new URI format:
 qsock ssh qs://ElDdawDNV4Quz5SolGWT
 ```
 
-The `qs://` scheme is optional, a value carrying no scheme is taken as a plain
-ASCII secret and converted into its URI form, which makes the two invocations
-below equivalent:
+The `qs://` scheme is mandatory for every secret, a UUID and a plain ASCII
+secret alike. A value carrying no scheme (`MySecret`) or a mistyped one
+(`qs:/MySecret`, `http://MySecret`) is rejected rather than hashed into a
+secret of its own:
 
 ```bash
-qsock ssh MySecret
-qsock ssh qs://MySecret
+qsock ssh qs://MySecret    # accepted
+qsock ssh MySecret         # rejected
 ```
 
-A mistyped scheme (`qs:/MySecret`, `http://MySecret`) is rejected rather than
-hashed into a secret of its own. The one place the scheme stays mandatory is
-an `scp` operand, where it is what tells the remote end of the transfer apart
-from the local path.
+The same applies to the interactive secret prompt and to `scp` operands, where
+the scheme is also what tells the remote end of the transfer apart from the
+local path.
 
 Both peers derive the same identifier from the same secret without exchanging
 anything: the first 16 bytes of its SHA-256 digest, tagged as a version 8

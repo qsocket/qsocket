@@ -12,17 +12,12 @@ import (
 const (
 	// URI_SCHEME is the scheme prefix of the QSocket secret URI format.
 	URI_SCHEME = "qs://"
-	// URI_SCHEME_NAME is the scheme name on its own, without the
-	// separator which follows it.
-	URI_SCHEME_NAME = "qs:"
-	// SCHEME_SEPARATOR separates the scheme name of a URI from the rest.
-	SCHEME_SEPARATOR = "://"
 	// UUID_LEN is the length of a canonical, dash separated UUID string.
 	UUID_LEN = 36
 )
 
 var (
-	ErrInvalidURI    = errors.New("Invalid QSocket secret, expected qs://<secret> or a plain secret")
+	ErrInvalidURI    = errors.New("Invalid QSocket secret, expected qs://<secret>")
 	ErrInvalidRemote = errors.New("Invalid remote target, expected qs://<secret>:<path>")
 	ErrEmptySecret   = errors.New("QSocket URI carries no secret.")
 )
@@ -38,19 +33,14 @@ func IsURI(v string) bool {
 // ParseURI resolves a secret given on the command line and normalizes it
 // into the canonical UUID form.
 //
-// The qs:// scheme is optional, a value carrying no scheme at all is taken as
-// a plain ASCII secret, which keeps the secret only invocations of the
-// previous releases working. Secrets which are not already a UUID are hashed
-// into one.
+// The qs:// scheme is mandatory for every kind of secret, a UUID and a plain
+// ASCII secret alike. A value carrying no scheme or a mistyped one is
+// rejected rather than hashed into a secret of its own, which would leave the
+// peers waiting for each other under two identifiers which never match.
+// Secrets which are not already a UUID are hashed into one.
 func ParseURI(uri string) (string, error) {
 	if !IsURI(uri) {
-		// A mistyped scheme is a mistake rather than a secret, deriving
-		// one from it would leave the peers waiting for each other
-		// under two identifiers which never match.
-		if strings.Contains(uri, SCHEME_SEPARATOR) || strings.HasPrefix(uri, URI_SCHEME_NAME) {
-			return "", fmt.Errorf("%w (got %q)", ErrInvalidURI, uri)
-		}
-		return NewSecret(uri)
+		return "", fmt.Errorf("%w (got %q)", ErrInvalidURI, uri)
 	}
 	return NewSecret(strings.TrimPrefix(uri, URI_SCHEME))
 }
@@ -61,8 +51,8 @@ func ParseURI(uri string) (string, error) {
 // refers to the working directory of the remote peer. A UUID never contains a
 // colon, hence the first one always separates the secret from the path.
 //
-// Unlike a bare secret the scheme is mandatory here, it is what tells the
-// remote end of a transfer apart from the local path it is copied to.
+// The scheme is what tells the remote end of a transfer apart from the local
+// path it is copied to.
 func ParseRemote(target string) (secret string, path string, err error) {
 	if !IsURI(target) {
 		return "", "", fmt.Errorf("%w (got %q)", ErrInvalidRemote, target)
