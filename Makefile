@@ -7,6 +7,9 @@
 
 BIN         = qsock
 MODULE      = github.com/qsocket/qsocket
+# MAIN is the main package, its directory name is what `go install` names the
+# binary after.
+MAIN        = ./cmd/$(BIN)
 BUILD_DIR   = build
 RELEASE_DIR = release
 GO          = go
@@ -46,7 +49,7 @@ PLATFORMS := $(sort $(foreach t,$(TARGETS),$(call goos,$(t))))
 .PHONY: default
 default:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GO) build $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BIN)$(EXE) .
+	CGO_ENABLED=0 $(GO) build $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BIN)$(EXE) $(MAIN)
 
 # all builds every target of the toolchain, `make -j all` builds them in
 # parallel since the targets share nothing but the source tree.
@@ -59,7 +62,7 @@ all: $(TARGETS)
 $(TARGETS):
 	@mkdir -p $(BUILD_DIR)/$(call goos,$@)
 	CGO_ENABLED=0 GOOS=$(call goos,$@) GOARCH=$(call goarch,$@) \
-		$(GO) build $(BUILD_FLAGS) -o $(call outfile,$@) .
+		$(GO) build $(BUILD_FLAGS) -o $(call outfile,$@) $(MAIN)
 
 # A goal for every operating system, `make linux` builds all of its ports.
 .PHONY: $(PLATFORMS)
@@ -97,24 +100,24 @@ android-ndk:
 	@test -n "$(ANDROID_NDK)" || { echo "ANDROID_NDK is not set!"; exit 1; }
 	@mkdir -p $(BUILD_DIR)/android
 	CC="$(NDK_BIN)/x86_64-linux-android$(ANDROID_API)-clang" GOOS=android GOARCH=amd64 \
-		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-amd64 .
+		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-amd64 $(MAIN)
 	CC="$(NDK_BIN)/i686-linux-android$(ANDROID_API)-clang" GOOS=android GOARCH=386 \
-		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-386 .
+		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-386 $(MAIN)
 	CC="$(NDK_BIN)/armv7a-linux-androideabi$(ANDROID_API)-clang" GOOS=android GOARCH=arm \
-		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-arm .
+		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-arm $(MAIN)
 	CC="$(NDK_BIN)/aarch64-linux-android$(ANDROID_API)-clang" GOOS=android GOARCH=arm64 \
-		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-arm64 .
+		CGO_ENABLED=1 $(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/android/$(BIN)-arm64 $(MAIN)
 
 .PHONY: android-apk
 android-apk:
 	@mkdir -p $(BUILD_DIR)/android
-	gomobile build -target android -androidapi $(ANDROID_API) -o $(BUILD_DIR)/android/$(BIN).apk
+	gomobile build -target android -androidapi $(ANDROID_API) -o $(BUILD_DIR)/android/$(BIN).apk $(MAIN)
 
 # The ios ports need a cgo compiler wrapping the xcode toolchain.
 .PHONY: ios
 ios:
 	@mkdir -p $(BUILD_DIR)/ios
 	GOOS=ios GOARCH=amd64 CGO_ENABLED=1 CC=$(CURDIR)/clangwrap.sh \
-		$(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/ios/$(BIN)-amd64 .
+		$(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/ios/$(BIN)-amd64 $(MAIN)
 	GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC=$(CURDIR)/clangwrap.sh \
-		$(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/ios/$(BIN)-arm64 .
+		$(GO) build $(CGO_BUILD_FLAGS) -o $(BUILD_DIR)/ios/$(BIN)-arm64 $(MAIN)

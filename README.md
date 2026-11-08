@@ -44,7 +44,7 @@ It allows redirecting fully interactive PTY sessions with reverse connections, e
 
 |    **Tool**   |                 **Build From Source**                |       **Docker Image**      |                     **Binary Release**                    |
 |:-------------:|:----------------------------------------------------:|:---------------------------:|:---------------------------------------------------------:|
-| **qsock** | [Instructions](#building) | [Download](#docker-install) | [Download][release] |
+| **qsock** | [Instructions](#building), [go install](#go-install) | [Download](#docker-install) | [Download][release] |
 
 ---
 
@@ -76,6 +76,14 @@ QSocket supports 13 architectures and 12 operating systems, following table cont
 
 </details>
 
+
+### Go Install
+
+The binary is installed as `qsock` into `$(go env GOPATH)/bin` with:
+
+```bash
+go install github.com/qsocket/qsocket/cmd/qsock@latest
+```
 
 ### Building
 
