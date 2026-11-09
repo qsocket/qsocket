@@ -226,6 +226,13 @@ needs nothing but the secret:
 qsock -l qs://<secret>
 ```
 
+Every established session moves the listener on to a new address, the md5 of
+the identifier it was listening with, and the address is given back when the
+session ends. A second listener started with the same secret therefore takes
+over the original address without colliding with the sessions of the first one,
+the relay sends each new connection down the same chain of addresses to
+whichever listener is waiting.
+
 A command given in server mode becomes the default for the sessions arriving
 without one, which is how a specific shell is pinned down:
 

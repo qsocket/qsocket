@@ -49,10 +49,17 @@ func Connect(ctx context.Context, opts *config.Options) error {
 // cancelled. Recoverable errors are logged and retried on the next probe
 // interval, unrecoverable ones (such as a server tag collision) are returned.
 //
+// Every probe knocks with the first free link of the UID chain of the secret
+// (see UIDChain), so the listener moves on to a new UID whenever a session is
+// established on its current one. A collision is only fatal for a listener
+// without sessions, one serving sessions keeps probing, returning would end
+// the process and the sessions with it.
+//
 // Cancelling the context stops the probe loop, it does not interrupt an
 // in-flight probe or terminate the sessions that are already established.
 func Serve(ctx context.Context, opts *config.Options) error {
 	log.Info("Listening for connections...")
+	chain := NewUIDChain(opts.Secret)
 	for firstRun := true; ; firstRun = false {
 		if !firstRun {
 			select {
@@ -65,36 +72,49 @@ func Serve(ctx context.Context, opts *config.Options) error {
 			return nil
 		}
 
-		err := ProbeQSRN(opts)
+		err := ProbeQSRN(opts, chain)
 		switch err {
 		case nil:
 		case qsocket.ErrPeerNotFound, io.EOF:
 			log.Debug(err)
 		case qsocket.ErrServerCollision:
-			return err
+			if chain.Active() == 0 {
+				return err
+			}
+			log.Debug(err)
 		default:
 			log.Error(err)
 		}
 	}
 }
 
-// ProbeQSRN dials the relay network once and serves the session of the peer
-// waiting on the other end, if there is one.
-func ProbeQSRN(opts *config.Options) error {
+// ProbeQSRN dials the relay network once with the first free link of the
+// given UID chain and serves the session of the peer waiting on the other
+// end, if there is one. The link stays in use until the session is closed.
+func ProbeQSRN(opts *config.Options, chain *UIDChain) error {
 	// This is nessesary for persistence on windows
 	os.Unsetenv("QS_ARGS") // Remove this for allowing recursive qsock usage
-	qs, err := DialQSRN(opts)
+	link, uid := chain.Next()
+	qs, err := NewSocket(opts)
 	if err != nil {
 		return err
 	}
+	if err := qs.SetUID(uid); err != nil {
+		return err
+	}
+	log.Debugf("Probing with UID chain link %d...", link)
+	if err := qs.Dial(opts.TLS); err != nil {
+		return err
+	}
+	sess := chain.Open(link, qs)
 
 	log.Debug("Recving session specs...")
-	specs, err := session.ReadSpecs(qs)
+	specs, err := session.ReadSpecs(sess)
 	if err != nil {
-		qs.Close()
+		sess.Close()
 		return err
 	}
-	return ServeSession(qs, specs, opts)
+	return ServeSession(sess, specs, opts)
 }
 
 // ServeSession dispatches an accepted session based on the command ID of its
