@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -35,10 +36,19 @@ var (
 	ErrNoSecret          = errors.New("No secret specified.")
 	ErrSocksNotSupported = errors.New("SOCKS proxy support is not implemented yet, this feature is still in development!")
 	ErrSCPMissingArgs    = errors.New("scp: missing source or destination operand")
-	ErrCertWithoutTLS    = errors.New("--cert-fp requires TLS, it cannot be used with --no-tls or --plain.")
+	ErrCertWithoutTLS    = errors.New("--cert-fp and --insecure-cert require TLS, they cannot be used with --no-tls or --plain.")
+	ErrInvalidCertFP     = errors.New("--cert-fp must be the hex encoded SHA-256 hash of the relay certificate's public key. (64 hex characters)")
 	ErrSCPBothRemote     = errors.New("scp: copying between two remote peers is not supported")
 	ErrSCPNoRemote       = errors.New("scp: either the source or the destination needs to be a qs:// URI")
 	ErrSCPServerArgs     = errors.New("scp: server mode takes a single qs:// URI, the paths are chosen by the connecting peer")
+)
+
+const (
+	// MSG_INSECURE_CERT is the warning printed with --insecure-cert.
+	MSG_INSECURE_CERT = "TLS certificate verification is disabled, the relay's identity is not checked."
+	// MSG_INSECURE_PLAIN is the alert printed with --insecure-cert and
+	// --no-e2e, it is printed in quiet mode too.
+	MSG_INSECURE_PLAIN = "End to end encryption is disabled and the relay is not authenticated, anyone on the network path can read and change this session."
 )
 
 // Options is the resolved configuration of a single qsock execution.
@@ -66,9 +76,13 @@ type Options struct {
 	// LocalPath is the file transfer path on this peer.
 	LocalPath string
 
-	// CertFingerprint is the expected TLS certificate fingerprint of the
-	// relay network gate.
+	// CertFingerprint is the hex encoded SHA-256 hash of the public key
+	// (SPKI) of the relay network gate's certificate, it replaces the CA
+	// validation when set.
 	CertFingerprint string
+	// InsecureCert accepts any relay certificate when no fingerprint is
+	// pinned.
+	InsecureCert bool
 	// Relay is the address of a custom relay network gate, a zero value
 	// dials the public QSRN gate.
 	Relay Relay
@@ -88,8 +102,6 @@ type Options struct {
 	Listen bool
 	// RandomAddress requests a randomly generated secret.
 	RandomAddress bool
-	// CertPinning enables certificate pinning on the TLS connections.
-	CertPinning bool
 	// Quiet silences every non fatal message.
 	Quiet bool
 	// UseTor reaches the relay network over the local TOR proxy.
@@ -227,7 +239,7 @@ func newOptions(g *Globals) (*Options, error) {
 		End2End:         g.End2End,
 		Listen:          g.Listen,
 		RandomAddress:   g.RandomAddress,
-		CertPinning:     g.CertPinning,
+		InsecureCert:    g.InsecureCert,
 		Quiet:           g.Quiet,
 		UseTor:          g.UseTor,
 		Verbose:         g.Verbose,
@@ -248,8 +260,21 @@ func newOptions(g *Globals) (*Options, error) {
 	}
 	// The fingerprint is checked against the certificate presented in the
 	// TLS handshake, without one it would be silently ignored.
-	if !opts.TLS && g.CertFingerprint != "" {
+	if !opts.TLS && (g.CertFingerprint != "" || g.InsecureCert) {
 		return nil, ErrCertWithoutTLS
+	}
+	if g.CertFingerprint != "" {
+		if fp, err := hex.DecodeString(g.CertFingerprint); err != nil || len(fp) != 32 {
+			return nil, ErrInvalidCertFP
+		}
+	}
+	// A pinned fingerprint takes precedence, the certificate is checked
+	// against it and the insecure flag changes nothing.
+	if opts.InsecureCert && opts.CertFingerprint == "" {
+		log.WarnStderr(MSG_INSECURE_CERT)
+		if !opts.End2End {
+			log.Alert(MSG_INSECURE_PLAIN)
+		}
 	}
 
 	if g.RelayServer != "" {

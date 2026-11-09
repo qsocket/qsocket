@@ -62,6 +62,9 @@ func NewSocket(opts *config.Options) (*qsocket.QSocket, error) {
 			return nil, err
 		}
 	}
+	if err := qs.SetInsecureCert(opts.InsecureCert); err != nil {
+		return nil, err
+	}
 	if opts.SocksAddr != "" {
 		if err := qs.SetProxy(opts.SocksAddr); err != nil {
 			return nil, err

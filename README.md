@@ -60,8 +60,8 @@ QSocket supports 13 architectures and 12 operating systems, following table cont
 
 | **ARCH/OS** | **Linux** | **MacOS** | **Windows** | **Android** | **iOS** | **FreeBSD** | **OpenBSD** | **NetBSD** | **Solaris** | **Illumos** | **Dragonfly** | **AIX** |
 |:-----------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|
-| **AMD64** | ✅ | ✅ | ✅ | 🔧 | 🚧 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **ARM64** | ✅ | ✅ | ✅ | ✅ | 🚧 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **AMD64** | ✅ | ✅ | ✅ | 🔧 | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **ARM64** | ✅ | ✅ | ✅ | ✅ | 🔧 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **386** | ✅ | ❌ | ✅ | 🔧 | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **ARM32** | ✅ | ❌ | ❌ | 🔧 | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **RISCV64** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -144,8 +144,11 @@ network. (QSRN)
 
 Flags:
   -h, --help                    Show context-sensitive help.
-      --cert-fp=HEX             Hex encoded TLS certificate fingerprint for
+      --cert-fp=HEX             Hex encoded SHA-256 hash of the relay
+                                certificate's public key (SPKI), replaces CA
                                 validation.
+      --insecure-cert           Accept insecure (self signed) relay certificates
+                                when no fingerprint is pinned.
       --relay-server=IP:PORT    Custom QSRN relay server address.
                                 (default:relay.qsocket.io)
       --relay-sni=HOST          Spoof the TLS server name indicated to the relay
@@ -157,7 +160,6 @@ Flags:
       --[no-]e2e                Use E2E encryption. (default:true)
   -l, --listen                  Server mode. (listen for connections)
   -g, --generate                Generate a new address. (random)
-  -K, --pin                     Enable certificate pinning on TLS connections.
   -q, --quiet                   Quiet mode. (no stdout)
   -T, --tor                     Use TOR for connecting QSRN.
       --qr                      Generate a QR code with given stdin and print on
@@ -283,6 +285,43 @@ $ qsock --relay-sni www.google.com -l qs://<secret>
 Dropping the TLS layer with `-C` takes the server name off the wire entirely,
 there is no handshake left to read it from, but it also leaves the session
 travelling in the clear.
+
+### Certificate Pinning
+
+The certificate of the gate is validated against the system roots by
+default. A gate with a certificate of its own, a self signed one included, is
+pinned with `--cert-fp` instead, which takes the SHA-256 hash of the public
+key (SPKI) of the gate's certificate:
+
+```bash
+openssl x509 -pubkey -noout -in cert.pem | openssl pkey -pubin -outform der | openssl dgst -sha256
+qsock --relay-server gate.example.com --cert-fp=<hash> -l qs://<secret>
+```
+
+A pinned fingerprint replaces the CA validation, the gate is accepted only if
+the key of its certificate matches, and it has to prove that it holds the
+matching private key during the TLS handshake. A mismatch ends the
+connection before anything is sent to the gate:
+
+```bash
+$ qsock --relay-server gate.example.com --cert-fp=<wrong-hash> ssh qs://<secret>
+[ERROR] Certificate fingerprint mismatch!
+```
+
+`--insecure-cert` accepts any certificate when no fingerprint is pinned, the
+identity of the gate is not checked at all, which is only meant for testing.
+A warning is printed on the standard error, and a louder one, printed in
+quiet mode (`-q`) too, when it is combined with `--no-e2e`, since nothing is
+left protecting the session on its way to the gate. Both flags need TLS, they
+are rejected together with `--no-tls` or `-C`.
+
+> [!NOTE]
+> The public gate `relay.qsocket.io` is served through Cloudflare, whose edge
+> certificates and keys rotate frequently, so a pin of the public gate stops
+> working without notice. Pinning is meant for gates whose key you control.
+
+The `-K` (`--pin`) flag of the previous releases is removed, `--cert-fp` alone
+turns the check on.
 
 ### ssh
 

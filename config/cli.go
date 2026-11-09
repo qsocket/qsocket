@@ -39,7 +39,8 @@ Examples:
 // Globals are the options shared by every subcommand, they are passed before
 // the subcommand name.
 type Globals struct {
-	CertFingerprint string           `help:"Hex encoded TLS certificate fingerprint for validation." name:"cert-fp" placeholder:"HEX"`
+	CertFingerprint string           `help:"Hex encoded SHA-256 hash of the relay certificate's public key (SPKI), replaces CA validation." name:"cert-fp" placeholder:"HEX"`
+	InsecureCert    bool             `help:"Accept insecure (self signed) relay certificates when no fingerprint is pinned." name:"insecure-cert"`
 	RelayServer     string           `help:"Custom QSRN relay server address. (default:relay.qsocket.io)" name:"relay-server" placeholder:"IP:PORT"`
 	RelaySNI        string           `help:"Spoof the TLS server name indicated to the relay server." name:"relay-sni" placeholder:"HOST"`
 	ProbeInterval   int              `help:"Probe interval for connecting QSRN." name:"probe" short:"n" default:"5"`
@@ -48,7 +49,6 @@ type Globals struct {
 	End2End         bool             `help:"Use E2E encryption. (default:true)" name:"e2e" default:"true" negatable:""`
 	Listen          bool             `help:"Server mode. (listen for connections)" name:"listen" short:"l"`
 	RandomAddress   bool             `help:"Generate a new address. (random)" name:"generate" short:"g"`
-	CertPinning     bool             `help:"Enable certificate pinning on TLS connections." name:"pin" short:"K"`
 	Quiet           bool             `help:"Quiet mode. (no stdout)" name:"quiet" short:"q"`
 	UseTor          bool             `help:"Use TOR for connecting QSRN." name:"tor" short:"T"`
 	GenerateQR      bool             `help:"Generate a QR code with given stdin and print on the terminal." name:"qr"`

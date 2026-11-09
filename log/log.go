@@ -134,10 +134,10 @@ func Error(args ...interface{}) {
 }
 
 // Fatal logs a message at level Fatal on the standard logger then the process will exit with status set to 1.
+//
+// Fatal is the highest level, it is printed at every log level (quiet mode
+// included) and always exits.
 func Fatal(args ...interface{}) {
-	if logLevel > LOG_LEVEL_ERROR {
-		return
-	}
 	fmt.Print(
 		fmt.Sprintf(
 			LOGGER_PROMPT,
@@ -244,10 +244,10 @@ func Errorf(format string, args ...interface{}) {
 }
 
 // Fatalf logs a message at level Fatal on the standard logger then the process will exit with status set to 1.
+//
+// Fatalf is the highest level, it is printed at every log level (quiet mode
+// included) and always exits.
 func Fatalf(format string, args ...interface{}) {
-	if logLevel > LOG_LEVEL_ERROR {
-		return
-	}
 	fmt.Print(
 		fmt.Sprintf(
 			LOGGER_PROMPT,
@@ -258,4 +258,42 @@ func Fatalf(format string, args ...interface{}) {
 		"\n",
 	)
 	os.Exit(1)
+}
+
+// WarnStderr logs a message at level Warn on the standard error, it is used
+// for warnings that must not end up in the data stream of a session written
+// to the standard output.
+func WarnStderr(args ...interface{}) {
+	if logLevel > LOG_LEVEL_WARN {
+		return
+	}
+	fmt.Fprint(
+		os.Stderr,
+		fmt.Sprintf(
+			LOGGER_PROMPT,
+			faintWhite.Sprint(time.Now().Format("03:04:05.000")),
+			yellow.Sprint("[WARN]"),
+		),
+		fmt.Sprint(args...),
+		"\n",
+	)
+}
+
+// Alert prints a security warning on the standard error regardless of the
+// log level, quiet mode included, and does not exit.
+//
+// It is reserved for configurations that leave a session readable and
+// changeable on the network path (--insecure-cert with --no-e2e). Any other
+// use needs a design change, so that quiet mode stays meaningful.
+func Alert(args ...interface{}) {
+	fmt.Fprint(
+		os.Stderr,
+		fmt.Sprintf(
+			LOGGER_PROMPT,
+			faintWhite.Sprint(time.Now().Format("03:04:05.000")),
+			criticalRed.Sprint("[!]"),
+		),
+		red.Sprint(args...),
+		"\n",
+	)
 }

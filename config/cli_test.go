@@ -1,11 +1,17 @@
 package config
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/qsocket/qsocket/log"
 	"github.com/qsocket/qsocket/session"
 )
+
+// testFP is a well formed SPKI fingerprint. (SHA-256 of "test")
+const testFP = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 
 // configure resolves an argument list the way the command line does, without
 // letting it reach the standard streams of the test process.
@@ -223,8 +229,8 @@ func TestConfigureGlobals(t *testing.T) {
 	if opts.ProbeInterval != 11 {
 		t.Errorf("got probe interval %d, want 11", opts.ProbeInterval)
 	}
-	if opts = configure(t, "--cert-fp", "deadbeef", "netcat", "qs://MySecret"); opts.CertFingerprint != "deadbeef" {
-		t.Errorf("got fingerprint %q, want %q", opts.CertFingerprint, "deadbeef")
+	if opts = configure(t, "--cert-fp", testFP, "netcat", "qs://MySecret"); opts.CertFingerprint != testFP {
+		t.Errorf("got fingerprint %q, want %q", opts.CertFingerprint, testFP)
 	}
 
 	if opts = configure(t, "-T", "netcat", "qs://MySecret"); opts.SocksAddr != TOR_SOCKS_ADDR {
@@ -259,8 +265,10 @@ func TestConfigureEncryptionLayers(t *testing.T) {
 	}
 
 	for _, args := range [][]string{
-		{"--no-tls", "--cert-fp", "deadbeef", "netcat", "qs://MySecret"},
-		{"-C", "--cert-fp", "deadbeef", "netcat", "qs://MySecret"},
+		{"--no-tls", "--cert-fp", testFP, "netcat", "qs://MySecret"},
+		{"-C", "--cert-fp", testFP, "netcat", "qs://MySecret"},
+		{"--no-tls", "--insecure-cert", "netcat", "qs://MySecret"},
+		{"-C", "--insecure-cert", "netcat", "qs://MySecret"},
 	} {
 		if _, err := Configure(args, false); err != ErrCertWithoutTLS {
 			t.Errorf("qsock %s: got %v, want %v", strings.Join(args, " "), err, ErrCertWithoutTLS)
@@ -329,6 +337,81 @@ func TestConfigureRelay(t *testing.T) {
 	} {
 		if _, err := Configure(args, false); err == nil {
 			t.Errorf("qsock %s was accepted", strings.Join(args, " "))
+		}
+	}
+}
+
+// captureStderr runs fn and returns what it wrote to the standard error.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = saved }()
+	fn()
+	w.Close()
+	out, _ := io.ReadAll(r)
+	return string(out)
+}
+
+func TestConfigureCertificateFlags(t *testing.T) {
+	defer log.SetLevel(log.LOG_LEVEL_INFO)
+
+	// -K/--pin is removed, the fingerprint alone enables the check.
+	for _, flag := range []string{"-K", "--pin"} {
+		if _, err := Configure([]string{flag, "--cert-fp", testFP, "netcat", "qs://MySecret"}, false); err == nil {
+			t.Errorf("qsock %s was accepted", flag)
+		}
+	}
+
+	for _, fp := range []string{
+		"deadbeef",
+		testFP[:63],
+		testFP + "0",
+		"zz" + testFP[2:],
+	} {
+		if _, err := Configure([]string{"--cert-fp", fp, "netcat", "qs://MySecret"}, false); err != ErrInvalidCertFP {
+			t.Errorf("--cert-fp %s: got %v, want %v", fp, err, ErrInvalidCertFP)
+		}
+	}
+
+	opts := configure(t, "--cert-fp", testFP, "--insecure-cert", "netcat", "qs://MySecret")
+	if opts.CertFingerprint != testFP || !opts.InsecureCert {
+		t.Errorf("--cert-fp with --insecure-cert: got fp=%q insecure=%t", opts.CertFingerprint, opts.InsecureCert)
+	}
+}
+
+func TestConfigureInsecureCertWarnings(t *testing.T) {
+	defer log.SetLevel(log.LOG_LEVEL_INFO)
+
+	for _, tc := range []struct {
+		args        []string
+		warn, alert bool
+	}{
+		{[]string{"--insecure-cert"}, true, false},
+		{[]string{"--insecure-cert", "--no-e2e"}, true, true},
+		// Quiet mode keeps the FATAL level, only the alert gets through.
+		{[]string{"-q", "--insecure-cert"}, false, false},
+		{[]string{"-q", "--insecure-cert", "--no-e2e"}, false, true},
+		// A pinned fingerprint takes precedence, nothing to warn about.
+		{[]string{"--cert-fp", testFP, "--insecure-cert", "--no-e2e"}, false, false},
+		{[]string{"--no-e2e"}, false, false},
+	} {
+		log.SetLevel(log.LOG_LEVEL_INFO)
+		args := append(tc.args, "netcat", "qs://MySecret")
+		out := captureStderr(t, func() {
+			if _, err := Configure(args, false); err != nil {
+				t.Errorf("qsock %s: %v", strings.Join(args, " "), err)
+			}
+		})
+		if got := strings.Contains(out, MSG_INSECURE_CERT); got != tc.warn {
+			t.Errorf("qsock %s: warning printed=%t, want %t", strings.Join(args, " "), got, tc.warn)
+		}
+		if got := strings.Contains(out, MSG_INSECURE_PLAIN); got != tc.alert {
+			t.Errorf("qsock %s: alert printed=%t, want %t", strings.Join(args, " "), got, tc.alert)
 		}
 	}
 }
