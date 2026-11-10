@@ -126,10 +126,10 @@ func ProbeQSRN(opts *config.Options, chain *UIDChain) error {
 func ServeSession(qs Session, specs *session.SessionSpecs, opts *config.Options) error {
 	applyDefaults(specs, opts)
 	log.Infof("Starting new %s session...", specs.ID)
-	log.Debugf("Got term size: %dx%d", specs.TermSize.Rows, specs.TermSize.Cols)
-	log.Debugf("Got command: %s", specs.Exec)
-	log.Debugf("Got address: %s", specs.Address)
-	log.Debugf("Got path: %s", specs.Path)
+	log.Debugf("-> Term Size: %dx%d", specs.TermSize.Rows, specs.TermSize.Cols)
+	log.Debugf("-> Command: %q", specs.Exec)
+	log.Debugf("-> Forward Address: %q", specs.Address)
+	log.Debugf("-> File Path: %q", specs.Path)
 
 	switch specs.ID {
 	case session.CMD_SSH:

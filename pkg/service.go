@@ -14,7 +14,7 @@ import (
 
 const (
 	// SERVICE_NAME is the name registered on the SCM dispatch table.
-	SERVICE_NAME = "qs-netcat"
+	SERVICE_NAME = "QSocket"
 	// SERVICE_WAIT_HINT is the estimated time (in milliseconds) reported to the
 	// SCM for completing pending state changes.
 	SERVICE_WAIT_HINT = 15000
@@ -26,7 +26,7 @@ const (
 	SERVICE_ACCEPTED_CMDS = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 )
 
-// Service implements the svc.Handler interface for running qs-netcat under
+// Service implements the svc.Handler interface for running qsock under
 // the control of the Windows service control manager (SCM).
 type Service struct {
 	opts   *config.Options
@@ -53,7 +53,7 @@ func RunService(opts *config.Options) error {
 }
 
 // Execute is called by the SCM dispatcher on service startup, it starts the
-// netcat worker and translates the incoming SCM control requests into worker
+// qsocket worker and translates the incoming SCM control requests into worker
 // state changes until the service is stopped.
 func (s *Service) Execute(args []string, r <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
 	log.Debugf("Service arguments: %s", args)
