@@ -25,6 +25,11 @@ const UID_CHAIN_MAX = 64
 //
 // A link becomes free again when its sessions end, the listener always probes
 // the first free link so it stays reachable where the relay stops looking.
+// A session ends for the relay as soon as its connection does, so the link is
+// freed on the first failed read or write too, not only on Close: a handler
+// whose process outlives the connection (a shell left running on Windows,
+// where nothing hangs it up) must not keep the listener away from the link
+// the relay sends the next peer to.
 type UIDChain struct {
 	mu     sync.Mutex
 	links  [UID_CHAIN_MAX][16]byte
@@ -67,7 +72,7 @@ func (c *UIDChain) Active() int {
 }
 
 // Open marks a session established on the given link. The returned session
-// frees the link again on its first Close.
+// frees the link again on its first Close or failed Read or Write.
 func (c *UIDChain) Open(link int, qs Session) Session {
 	c.mu.Lock()
 	c.active[link]++
@@ -79,11 +84,29 @@ func (c *UIDChain) Open(link int, qs Session) Session {
 	}}
 }
 
-// chainSession is a session holding a link of a UIDChain until it is closed.
+// chainSession is a session holding a link of a UIDChain until it is closed
+// or its connection fails. No deadlines are set on sessions, so every read or
+// write error means the relay connection is gone.
 type chainSession struct {
 	Session
 	once    sync.Once
 	release func()
+}
+
+func (s *chainSession) Read(b []byte) (int, error) {
+	n, err := s.Session.Read(b)
+	if err != nil {
+		s.once.Do(s.release)
+	}
+	return n, err
+}
+
+func (s *chainSession) Write(b []byte) (int, error) {
+	n, err := s.Session.Write(b)
+	if err != nil {
+		s.once.Do(s.release)
+	}
+	return n, err
 }
 
 func (s *chainSession) Close() {

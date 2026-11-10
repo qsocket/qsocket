@@ -70,3 +70,34 @@ func TestUIDChainSaturates(t *testing.T) {
 		t.Fatalf("saturated chain returned link %d", link)
 	}
 }
+
+// A session whose connection is gone frees its link even when the handler
+// never closes it, as with a shell outliving the connection on Windows.
+func TestUIDChainFreesLinkWhenConnectionEnds(t *testing.T) {
+	c := NewUIDChain("qs://example-secret")
+	a, b := net.Pipe()
+	sess := c.Open(0, pipeSession{a})
+	if link, _ := c.Next(); link != 1 {
+		t.Fatalf("next = %d while link 0 is in use", link)
+	}
+
+	// The peer goes away, the handler only notices on its next read.
+	b.Close()
+	if _, err := sess.Read(make([]byte, 1)); err == nil {
+		t.Fatal("read on a closed connection succeeded")
+	}
+	if link, _ := c.Next(); link != 0 {
+		t.Fatalf("next = %d after the connection of link 0 ended", link)
+	}
+	if n := c.Active(); n != 0 {
+		t.Fatalf("Active() = %d, want 0", n)
+	}
+
+	// A later Close or write error must not release the link again.
+	sess.Write([]byte("x"))
+	sess.Close()
+	c.Open(0, newPipeSession(t))
+	if n := c.Active(); n != 1 {
+		t.Fatalf("Active() = %d after reopening link 0, want 1", n)
+	}
+}
